@@ -39,6 +39,7 @@ body {
 .dice img {
   width: 70%;
   height: auto;
+  transition: filter 0.15s ease-in-out;
 }
 
 .draw-border {
@@ -439,3 +440,36 @@ input.modal-input {
 .form-group + .form-group {
   margin-top: 0.5rem;
 }
+
+/* Animation and button state styles */
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  color: #888 !important;
+}
+
+.btn:disabled:hover {
+  color: #888 !important;
+}
+
+.btn:disabled::before,
+.btn:disabled::after {
+  border-color: #888 !important;
+}
+
+/* Animation status indicator */
+.animation-status {
+  position: absolute;
+  bottom: 25%;
+  right: 25%;
+  color: #ffe593;
+  font-size: 1.1rem;
+  font-family: "Roboto Slab", sans-serif;
+  text-align: center;
+  background-color: rgba(42, 32, 53, 0.8);
+  padding: 0.5rem 1rem;
+  border-radius: 5px;
+  display: none;
+}
+
+/* Ensure all inputs don't overflow */

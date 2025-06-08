@@ -260,24 +260,157 @@ class Player {
     this.name = name;
     this.pos = pos;
     this.img = img;
+    this.isAnimating = false;
+    this.animationPos = pos; // Current visual position during animation
+    this.isStepMoving = false; // True during step-by-step movement, false during ladder/snake
   }
-
-  draw() {
+  // Calculate x,y coordinates for a given position
+  getCoordinates(position) {
     let xPos =
-      Math.floor(this.pos / 10) % 2 == 0
-        ? (this.pos % 10) * side - 15 + offsetX
-        : canvas.width - ((this.pos % 10) * side + offsetX + 15);
-    let yPos = canvas.height - (Math.floor(this.pos / 10) * side + offsetY);
-
+      Math.floor(position / 10) % 2 == 0
+        ? (position % 10) * side - 15 + offsetX
+        : canvas.width - ((position % 10) * side + offsetX + 15);
+    let yPos = canvas.height - (Math.floor(position / 10) * side + offsetY);
+    
+    // Offset players slightly if multiple players are on the same square
+    const playersOnSameSquare = players.filter(p => 
+      Math.floor(p.animationPos) === Math.floor(position) && p.id !== this.id
+    );
+    
+    if (playersOnSameSquare.length > 0) {
+      const offset = (this.id % 4) * 8; // Spread players by 8 pixels
+      xPos += offset - 12; // Center the spread
+    }
+    
+    return { x: xPos, y: yPos };
+  }
+  draw() {
+    const coords = this.getCoordinates(this.animationPos);
     let image = new Image();
     image.src = this.img;
-    ctx.drawImage(image, xPos, yPos, 30, 40);
+    
+    // Add a subtle bounce effect only during step movement
+    let bounceOffset = 0;
+    if (this.isAnimating && this.isStepMoving) {
+      bounceOffset = Math.sin(Date.now() * 0.01) * 2; // Small bounce
+    }
+    
+    ctx.drawImage(image, coords.x, coords.y + bounceOffset, 30, 40);
+  }// Animate movement step by step
+  async animateMovement(steps) {
+    if (this.isAnimating) return;
+    
+    this.isAnimating = true;
+    const startPos = this.pos;
+    const endPos = Math.min(this.pos + steps, 99);
+    
+    // Disable roll button during animation
+    document.getElementById("roll-button").disabled = true;
+    
+    // Show animation status
+    const statusElement = document.getElementById("animation-status");
+    if (statusElement) {
+      statusElement.style.display = 'block';
+      statusElement.textContent = `${this.name} is moving...`;
+    }
+    
+    // Step-by-step movement animation
+    for (let i = startPos + 1; i <= endPos; i++) {
+      this.animationPos = i;
+      drawPins();
+      
+      // Add step sound feedback (visual feedback via dice highlight)
+      this.flashDice();
+      
+      await this.delay(300); // 300ms per step
+    }
+    
+    this.pos = endPos;
+    
+    // Check for ladder or snake
+    const newPos = this.isLadderOrSnake(this.pos + 1) - 1;
+    if (newPos !== this.pos) {
+      // Animate ladder/snake movement
+      const isLadder = newPos > this.pos;
+      if (statusElement) {
+        statusElement.textContent = isLadder ? 
+          `${this.name} is climbing a ladder! 🪜` : 
+          `${this.name} is sliding down a snake! 🐍`;
+      }
+      await this.animateLadderOrSnake(this.pos, newPos);
+      this.pos = newPos;
+    }
+    
+    this.animationPos = this.pos;
+    this.isAnimating = false;
+    
+    // Hide animation status
+    if (statusElement) {
+      statusElement.style.display = 'none';
+    }
+    
+    // Re-enable roll button
+    document.getElementById("roll-button").disabled = false;
+    
+    drawPins();
+  }
+
+  // Visual feedback for movement steps
+  flashDice() {
+    const diceElement = document.getElementById("dice");
+    if (diceElement) {
+      diceElement.style.filter = 'brightness(1.5)';
+      setTimeout(() => {
+        diceElement.style.filter = 'brightness(1)';
+      }, 150);
+    }
+  }
+  // Animate ladder climbing or snake sliding
+  async animateLadderOrSnake(fromPos, toPos) {
+    const isLadder = toPos > fromPos;
+    const distance = Math.abs(toPos - fromPos);
+    const steps = Math.min(distance, 8); // Maximum 8 animation steps
+    const stepDelay = isLadder ? 200 : 120; // Slower for ladders, faster for snakes
+    
+    // Show climbing/sliding effect with intermediate positions
+    for (let i = 1; i <= steps; i++) {
+      const progress = i / steps;
+      
+      // Use easing for more natural movement
+      const easedProgress = isLadder ? 
+        this.easeOutQuad(progress) : // Slower at the end for ladders
+        this.easeInQuad(progress);   // Faster at the end for snakes
+      
+      const currentPos = fromPos + (toPos - fromPos) * easedProgress;
+      this.animationPos = Math.round(currentPos);
+      drawPins();
+      await this.delay(stepDelay);
+    }
+    
+    this.animationPos = toPos;
+    drawPins();
+    await this.delay(300); // Brief pause at the end
+  }
+
+  // Easing functions for smooth animation
+  easeOutQuad(t) {
+    return t * (2 - t);
+  }
+
+  easeInQuad(t) {
+    return t * t;
+  }
+
+  delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
   }
 
   updatePos(num) {
+    // This method is now only used for immediate position updates (like restart)
     if (this.pos + num <= 99) {
       this.pos += num;
       this.pos = this.isLadderOrSnake(this.pos + 1) - 1;
+      this.animationPos = this.pos;
     }
   }
 
@@ -314,14 +447,15 @@ document.getElementById("start-btn").addEventListener("click", () => {
   socket.emit("join", currentPlayer);
 });
 
-document.getElementById("roll-button").addEventListener("click", () => {
+document.getElementById("roll-button").addEventListener("click", async () => {
   const num = rollDice();
   
   if (gameMode === 'same-device') {
     // Same device mode
-    players[currentTurn].updatePos(num);
     document.getElementById("dice").src = `./images/dice/dice${num}.png`;
-    drawPins();
+    
+    // Animate the current player's movement
+    await players[currentTurn].animateMovement(num);
     
     // Check for winner
     if (players[currentTurn].pos == 99) {
@@ -340,8 +474,8 @@ document.getElementById("roll-button").addEventListener("click", () => {
     document.getElementById("current-player").innerHTML = `<p>It's ${players[currentTurn].name}'s turn</p>`;
     updatePlayersTable();
   } else {
-    // Online mode
-    currentPlayer.updatePos(num);
+    // Online mode - animate current player's movement
+    await currentPlayer.animateMovement(num);
     socket.emit("rollDice", {
       num: num,
       id: currentPlayer.id,
@@ -364,6 +498,7 @@ function drawPins() {
   if (ctx && canvas) {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+    // Draw players in order (so overlapping is consistent)
     players.forEach((player) => {
       player.draw();
     });
@@ -475,11 +610,12 @@ socket.on("joined", (data) => {
   }
 });
 
-socket.on("rollDice", (data, turn) => {
+socket.on("rollDice", async (data, turn) => {
   if (gameMode === 'online') {
-    players[data.id].updatePos(data.num);
     document.getElementById("dice").src = `./images/dice/dice${data.num}.png`;
-    drawPins();
+    
+    // Animate the movement for the player who rolled
+    await players[data.id].animateMovement(data.num);
 
     if (turn != currentPlayer.id) {
       document.getElementById("roll-button").hidden = true;
@@ -516,10 +652,15 @@ socket.on("rollDice", (data, turn) => {
 document.getElementById("restart-btn").addEventListener("click", () => {
   if (gameMode === 'same-device') {
     // Reset same device game
-    players.forEach(player => player.pos = 0);
+    players.forEach(player => {
+      player.pos = 0;
+      player.animationPos = 0;
+      player.isAnimating = false;
+    });
     currentTurn = 0;
     document.getElementById("current-player").innerHTML = `<p>It's ${players[currentTurn].name}'s turn</p>`;
     document.getElementById("roll-button").hidden = false;
+    document.getElementById("roll-button").disabled = false;
     document.getElementById("dice").hidden = false;
     document.getElementById("restart-btn").hidden = true;
     updatePlayersTable();
