@@ -8,40 +8,117 @@
       href="https://fonts.googleapis.com/css?family=Roboto"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="css/styles.css" />
-  </head>
+    <link rel="stylesheet" href="css/styles.css" />  </head>
   <body>
-    <div class="board"></div>
-    <img src="images/red_piece.png" alt="" hidden="true" id="red-piece" />
+    <!-- Game Mode Modal -->
+    <div id="modal-overlay" class="modal-overlay">
+      <div class="modal">
+        <div class="modal-content" id="mode-selection">
+          <h2>Choose Game Mode</h2>
+          <div class="mode-buttons">
+            <button class="btn draw-border mode-btn" id="same-device-btn">Same Device</button>
+            <button class="btn draw-border mode-btn" id="online-btn">Online</button>
+          </div>
+        </div>
+          <!-- Same Device Players Setup -->
+        <div class="modal-content" id="same-device-setup" style="display: none;">
+          <h2>Same Device Game</h2>
+          <div class="players-setup">
+            <div class="form-group horizontal">
+              <input type="text" class="modal-input" id="player-name-input" placeholder="Enter player name">
+              <button class="btn draw-border" id="add-player-btn">Add Player</button>
+            </div>
+            <div id="players-list">
+              <h3>Players:</h3>
+              <ul id="players-ul"></ul>
+            </div>
+            <div class="modal-actions">
+              <button class="btn draw-border" id="start-same-device-btn" disabled>Start Game</button>
+              <button class="btn draw-border" id="back-from-same-device-btn">Back</button>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Online Game Options -->
+        <div class="modal-content" id="online-options" style="display: none;">
+          <h2>Online Game</h2>
+          <div class="online-buttons">
+            <button class="btn draw-border mode-btn" id="create-room-btn">Create Room</button>
+            <button class="btn draw-border mode-btn" id="join-room-btn">Join Room</button>
+          </div>
+          <button class="btn draw-border" id="back-from-online-btn">Back</button>
+        </div>
+          <!-- Create Room -->
+        <div class="modal-content" id="create-room" style="display: none;">
+          <h2>Create Room</h2>
+          <div class="room-info">
+            <div class="form-group">
+              <input type="text" class="modal-input" id="host-name-input" placeholder="Your name">
+            </div>
+            <div id="room-code-display" style="display: none;">
+              <h3>Room Code: <span id="room-code"></span></h3>
+              <p>Players in room: <span id="room-player-count">1</span></p>
+              <div id="room-players-list"></div>
+            </div>
+          </div>
+          <div class="modal-actions">
+            <button class="btn draw-border" id="create-room-confirm-btn">Create Room</button>
+            <button class="btn draw-border" id="start-online-game-btn" style="display: none;" disabled>Start Game</button>
+            <button class="btn draw-border" id="back-from-create-btn">Back</button>
+          </div>
+        </div>
+        
+        <!-- Join Room -->
+        <div class="modal-content" id="join-room" style="display: none;">
+          <h2>Join Room</h2>
+          <div class="form-group">
+            <input type="text" class="modal-input" id="join-name-input" placeholder="Your name">
+            <input type="text" class="modal-input" id="room-code-input" placeholder="Room code">
+            <button class="btn draw-border" id="join-room-confirm-btn">Join Room</button>
+          </div>
+          <div id="joined-room-info" style="display: none;">
+            <h3>Joined Room: <span id="joined-room-code"></span></h3>
+            <p>Players in room: <span id="joined-room-player-count"></span></p>
+            <div id="joined-room-players-list"></div>
+            <p>Waiting for host to start the game...</p>
+          </div>
+          <button class="btn draw-border" id="back-from-join-btn">Back</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="board"></div>    <img src="images/red_piece.png" alt="" hidden="true" id="red-piece" />
     <img src="images/blue_piece.png" alt="" hidden="true" id="blue-piece" />
     <img src="images/yellow_piece.png" alt="" hidden="true" id="yellow-piece" />
     <img src="images/green_piece.png" alt="" hidden="true" id="green-piece" />
-    <div class="container">
-      <canvas id="canvas"></canvas>
-    </div>
-    <div class="info-box">
-      <div class="form-group">
-        <input
-          type="text"
-          class="form-input"
-          id="name"
-          placeholder="Your name"
-          required
-        />
-        <button class="btn draw-border" id="start-btn">Join</button>
+    <div class="game-interface" id="game-interface" hidden>
+      <div class="container">
+        <canvas id="canvas"></canvas>
       </div>
+      <div class="info-box">
+        <div class="form-group">
+          <input
+            type="text"
+            class="form-input"
+            id="name"
+            placeholder="Your name"
+            required
+          />
+          <button class="btn draw-border" id="start-btn">Join</button>
+        </div>
+      </div>
+      <div id="players-box">
+        <h3>Players currently online:</h3>
+        <br>
+        <table id="players-table"></table>
+      </div>
+      <div id="current-player"></div>
+      <button class="btn draw-border" id="roll-button" hidden>Roll</button>
+      <div class="dice">
+        <img src="./images/dice/dice1.png" alt="" id="dice" />
+      </div>
+      <button class="btn draw-border" id="restart-btn" hidden>Restart</button>
     </div>
-    <div id="players-box">
-      <h3>Players currently online:</h3>
-      <br>
-      <table id="players-table"></table>
-    </div>
-    <div id="current-player"></div>
-    <button class="btn draw-border" id="roll-button" hidden>Roll</button>
-    <div class="dice">
-      <img src="./images/dice/dice1.png" alt="" id="dice" />
-    </div>
-    <button class="btn draw-border" id="restart-btn" hidden>Restart</button>
     <script src="/socket.io/socket.io.js"></script>
     <script src="js/index.js"></script>
   </body>

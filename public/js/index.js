@@ -1,23 +1,235 @@
 // Making Connection
 const socket = io.connect("http://localhost:3000");
-socket.emit("joined");
 
 let players = []; // All players in the game
 let currentPlayer; // Player object for individual players
+let gameMode = null; // 'same-device' or 'online'
+let currentTurn = 0; // For same device mode
+let roomCode = null;
+let isHost = false;
 
-let canvas = document.getElementById("canvas");
-canvas.width = document.documentElement.clientHeight * 0.9;
-canvas.height = document.documentElement.clientHeight * 0.9;
-let ctx = canvas.getContext("2d");
+// Modal elements
+const modalOverlay = document.getElementById('modal-overlay');
+const modeSelection = document.getElementById('mode-selection');
+const sameDeviceSetup = document.getElementById('same-device-setup');
+const onlineOptions = document.getElementById('online-options');
+const createRoom = document.getElementById('create-room');
+const joinRoom = document.getElementById('join-room');
+const gameInterface = document.getElementById('game-interface');
+
+// Initialize modal system
+window.addEventListener('load', () => {
+  showModal('mode-selection');
+});
+
+function showModal(modalId) {
+  // Hide all modal contents
+  document.querySelectorAll('.modal-content').forEach(content => {
+    content.style.display = 'none';
+  });
+  
+  // Show specific modal content
+  document.getElementById(modalId).style.display = 'block';
+  modalOverlay.style.display = 'flex';
+}
+
+function hideModal() {
+  modalOverlay.style.display = 'none';
+  gameInterface.hidden = false;
+}
+
+// Mode selection handlers
+document.getElementById('same-device-btn').addEventListener('click', () => {
+  gameMode = 'same-device';
+  showModal('same-device-setup');
+});
+
+document.getElementById('online-btn').addEventListener('click', () => {
+  gameMode = 'online';
+  showModal('online-options');
+  socket.emit("joined");
+});
+
+// Same device setup handlers
+let sameDevicePlayers = [];
+
+document.getElementById('add-player-btn').addEventListener('click', () => {
+  const nameInput = document.getElementById('player-name-input');
+  const name = nameInput.value.trim();
+  
+  if (name && sameDevicePlayers.length < 4) {
+    sameDevicePlayers.push({
+      name: name,
+      pos: 0,
+      img: images[sameDevicePlayers.length]
+    });
+    
+    updateSameDevicePlayersList();
+    nameInput.value = '';
+    
+    // Enable start button if at least 2 players
+    document.getElementById('start-same-device-btn').disabled = sameDevicePlayers.length < 2;
+  }
+});
+
+function updateSameDevicePlayersList() {
+  const playersList = document.getElementById('players-ul');
+  playersList.innerHTML = '';
+  
+  sameDevicePlayers.forEach((player, index) => {
+    const li = document.createElement('li');
+    li.innerHTML = `
+      <span>${player.name}</span>
+      <button class="remove-player" onclick="removeSameDevicePlayer(${index})">Remove</button>
+    `;
+    playersList.appendChild(li);
+  });
+}
+
+function removeSameDevicePlayer(index) {
+  sameDevicePlayers.splice(index, 1);
+  // Reassign images
+  sameDevicePlayers.forEach((player, i) => {
+    player.img = images[i];
+  });
+  updateSameDevicePlayersList();
+  document.getElementById('start-same-device-btn').disabled = sameDevicePlayers.length < 2;
+}
+
+// Global function for removing players (needed for onclick handler)
+window.removeSameDevicePlayer = removeSameDevicePlayer;
+
+document.getElementById('start-same-device-btn').addEventListener('click', () => {
+  // Shuffle players randomly
+  for (let i = sameDevicePlayers.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [sameDevicePlayers[i], sameDevicePlayers[j]] = [sameDevicePlayers[j], sameDevicePlayers[i]];
+  }
+  
+  // Reassign images and IDs after shuffling
+  sameDevicePlayers.forEach((player, index) => {
+    player.id = index;
+    player.img = images[index];
+  });
+  
+  players = sameDevicePlayers.map(p => new Player(p.id, p.name, p.pos, p.img));
+  currentTurn = 0;
+  
+  hideModal();
+  initializeSameDeviceGame();
+});
+
+function initializeSameDeviceGame() {
+  setupCanvas();
+  
+  // Hide online-specific elements
+  document.getElementById('name').style.display = 'none';
+  document.getElementById('start-btn').style.display = 'none';
+  document.getElementById('players-box').querySelector('h3').textContent = 'Players:';
+  
+  // Show game elements
+  document.getElementById('roll-button').hidden = false;
+  
+  // Update current player display
+  document.getElementById('current-player').innerHTML = `<p>It's ${players[currentTurn].name}'s turn</p>`;
+  
+  // Update players table
+  updatePlayersTable();
+  drawPins();
+}
+
+function setupCanvas() {
+  initializeCanvas();
+}
+
+function updatePlayersTable() {
+  const table = document.getElementById('players-table');
+  table.innerHTML = '';
+  
+  players.forEach((player, index) => {
+    const isCurrentPlayer = (gameMode === 'same-device' && index === currentTurn);
+    const row = table.insertRow();
+    row.innerHTML = `
+      <td style="${isCurrentPlayer ? 'font-weight: bold; color: #ffe593;' : ''}">${player.name}</td>
+      <td><img src="${player.img}" height="40" width="30"></td>
+    `;
+  });
+}
+
+// Back button handlers
+document.getElementById('back-from-same-device-btn').addEventListener('click', () => {
+  sameDevicePlayers = [];
+  updateSameDevicePlayersList();
+  document.getElementById('start-same-device-btn').disabled = true;
+  showModal('mode-selection');
+});
+
+document.getElementById('back-from-online-btn').addEventListener('click', () => {
+  showModal('mode-selection');
+});
+
+// Online game handlers
+document.getElementById('create-room-btn').addEventListener('click', () => {
+  showModal('create-room');
+});
+
+document.getElementById('join-room-btn').addEventListener('click', () => {
+  showModal('join-room');
+});
+
+document.getElementById('create-room-confirm-btn').addEventListener('click', () => {
+  const hostName = document.getElementById('host-name-input').value.trim();
+  if (hostName) {
+    isHost = true;
+    socket.emit('createRoom', { name: hostName });
+  }
+});
+
+document.getElementById('join-room-confirm-btn').addEventListener('click', () => {
+  const joinName = document.getElementById('join-name-input').value.trim();
+  const roomCodeInput = document.getElementById('room-code-input').value.trim();
+  
+  if (joinName && roomCodeInput) {
+    socket.emit('joinRoom', { name: joinName, roomCode: roomCodeInput });
+  }
+});
+
+document.getElementById('start-online-game-btn').addEventListener('click', () => {
+  socket.emit('startGame', { roomCode });
+});
+
+// Back buttons for room creation/joining
+document.getElementById('back-from-create-btn').addEventListener('click', () => {
+  showModal('online-options');
+});
+
+document.getElementById('back-from-join-btn').addEventListener('click', () => {
+  showModal('online-options');
+});
+
+let canvas;
+let ctx;
+let side, offsetX, offsetY;
+
+// Initialize canvas after the game interface is shown
+function initializeCanvas() {
+  canvas = document.getElementById("canvas");
+  if (canvas) {
+    canvas.width = document.documentElement.clientHeight * 0.9;
+    canvas.height = document.documentElement.clientHeight * 0.9;
+    ctx = canvas.getContext("2d");
+    
+    // Calculate board dimensions
+    side = canvas.width / 10;
+    offsetX = side / 2;
+    offsetY = side / 2 + 20;
+  }
+}
 
 const redPieceImg = "../images/red_piece.png";
 const bluePieceImg = "../images/blue_piece.png";
 const yellowPieceImg = "../images/yellow_piece.png";
 const greenPieceImg = "../images/green_piece.png";
-
-const side = canvas.width / 10;
-const offsetX = side / 2;
-const offsetY = side / 2 + 20;
 
 const images = [redPieceImg, bluePieceImg, yellowPieceImg, greenPieceImg];
 
@@ -104,12 +316,39 @@ document.getElementById("start-btn").addEventListener("click", () => {
 
 document.getElementById("roll-button").addEventListener("click", () => {
   const num = rollDice();
-  currentPlayer.updatePos(num);
-  socket.emit("rollDice", {
-    num: num,
-    id: currentPlayer.id,
-    pos: currentPlayer.pos,
-  });
+  
+  if (gameMode === 'same-device') {
+    // Same device mode
+    players[currentTurn].updatePos(num);
+    document.getElementById("dice").src = `./images/dice/dice${num}.png`;
+    drawPins();
+    
+    // Check for winner
+    if (players[currentTurn].pos == 99) {
+      document.getElementById("current-player").innerHTML = `<p>${players[currentTurn].name} has won!</p>`;
+      document.getElementById("roll-button").hidden = true;
+      document.getElementById("dice").hidden = true;
+      document.getElementById("restart-btn").hidden = false;
+      return;
+    }
+    
+    // Move to next player (only if didn't roll 6)
+    if (num !== 6) {
+      currentTurn = (currentTurn + 1) % players.length;
+    }
+    
+    document.getElementById("current-player").innerHTML = `<p>It's ${players[currentTurn].name}'s turn</p>`;
+    updatePlayersTable();
+  } else {
+    // Online mode
+    currentPlayer.updatePos(num);
+    socket.emit("rollDice", {
+      num: num,
+      id: currentPlayer.id,
+      pos: currentPlayer.pos,
+      roomCode: roomCode
+    });
+  }
 });
 
 function rollDice() {
@@ -118,14 +357,103 @@ function rollDice() {
 }
 
 function drawPins() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (!ctx || !canvas) {
+    setupCanvas();
+  }
+  
+  if (ctx && canvas) {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  players.forEach((player) => {
-    player.draw();
-  });
+    players.forEach((player) => {
+      player.draw();
+    });
+  }
 }
 
 // Listen for events
+socket.on('roomCreated', (data) => {
+  roomCode = data.roomCode;
+  document.getElementById('room-code').textContent = roomCode;
+  document.getElementById('room-code-display').style.display = 'block';
+  document.getElementById('create-room-confirm-btn').style.display = 'none';
+  document.getElementById('host-name-input').disabled = true;
+  updateRoomPlayersList(data.players);
+});
+
+socket.on('roomJoined', (data) => {
+  roomCode = data.roomCode;
+  document.getElementById('joined-room-code').textContent = roomCode;
+  document.getElementById('joined-room-info').style.display = 'block';
+  document.getElementById('join-name-input').disabled = true;
+  document.getElementById('room-code-input').disabled = true;
+  document.getElementById('join-room-confirm-btn').style.display = 'none';
+  updateJoinedRoomPlayersList(data.players);
+});
+
+socket.on('roomPlayerUpdate', (data) => {
+  if (isHost) {
+    updateRoomPlayersList(data.players);
+    document.getElementById('start-online-game-btn').disabled = data.players.length < 2;
+    document.getElementById('start-online-game-btn').style.display = 'block';
+  } else {
+    updateJoinedRoomPlayersList(data.players);
+  }
+});
+
+socket.on('gameStarted', (data) => {
+  players = data.players.map(p => new Player(p.id, p.name, p.pos, p.img));
+  currentPlayer = players.find(p => p.id === data.currentPlayerId);
+  hideModal();
+  initializeOnlineGame();
+});
+
+socket.on('roomError', (error) => {
+  alert(error.message);
+});
+
+function updateRoomPlayersList(playersData) {
+  const playersList = document.getElementById('room-players-list');
+  document.getElementById('room-player-count').textContent = playersData.length;
+  
+  playersList.innerHTML = '';
+  playersData.forEach(player => {
+    const playerDiv = document.createElement('div');
+    playerDiv.textContent = player.name;
+    playerDiv.style.padding = '0.5rem';
+    playerDiv.style.backgroundColor = '#4a4555';
+    playerDiv.style.margin = '0.25rem 0';
+    playerDiv.style.borderRadius = '3px';
+    playersList.appendChild(playerDiv);
+  });
+}
+
+function updateJoinedRoomPlayersList(playersData) {
+  const playersList = document.getElementById('joined-room-players-list');
+  document.getElementById('joined-room-player-count').textContent = playersData.length;
+  
+  playersList.innerHTML = '';
+  playersData.forEach(player => {
+    const playerDiv = document.createElement('div');
+    playerDiv.textContent = player.name;
+    playerDiv.style.padding = '0.5rem';
+    playerDiv.style.backgroundColor = '#4a4555';
+    playerDiv.style.margin = '0.25rem 0';
+    playerDiv.style.borderRadius = '3px';
+    playersList.appendChild(playerDiv);
+  });
+}
+
+function initializeOnlineGame() {
+  setupCanvas();
+  
+  document.getElementById('players-box').querySelector('h3').textContent = 'Players currently online:';
+  document.getElementById('name').style.display = 'none';
+  document.getElementById('start-btn').style.display = 'none';
+  document.getElementById('roll-button').hidden = false;
+  updatePlayersTable();
+  drawPins();
+}
+
 socket.on("join", (data) => {
   players.push(new Player(players.length, data.name, data.pos, data.img));
   drawPins();
@@ -135,56 +463,74 @@ socket.on("join", (data) => {
 });
 
 socket.on("joined", (data) => {
-  data.forEach((player, index) => {
-    players.push(new Player(index, player.name, player.pos, player.img));
-    console.log(player);
-    document.getElementById(
-      "players-table"
-    ).innerHTML += `<tr><td>${player.name}</td><td><img src=${player.img}></td></tr>`;
-  });
-  drawPins();
+  if (gameMode === 'online') {
+    data.forEach((player, index) => {
+      players.push(new Player(index, player.name, player.pos, player.img));
+      console.log(player);
+      document.getElementById(
+        "players-table"
+      ).innerHTML += `<tr><td>${player.name}</td><td><img src=${player.img}></td></tr>`;
+    });
+    drawPins();
+  }
 });
 
 socket.on("rollDice", (data, turn) => {
-  players[data.id].updatePos(data.num);
-  document.getElementById("dice").src = `./images/dice/dice${data.num}.png`;
-  drawPins();
+  if (gameMode === 'online') {
+    players[data.id].updatePos(data.num);
+    document.getElementById("dice").src = `./images/dice/dice${data.num}.png`;
+    drawPins();
 
-  if (turn != currentPlayer.id) {
-    document.getElementById("roll-button").hidden = true;
-    document.getElementById(
-      "current-player"
-    ).innerHTML = `<p>It's ${players[turn].name}'s turn</p>`;
-  } else {
-    document.getElementById("roll-button").hidden = false;
-    document.getElementById(
-      "current-player"
-    ).innerHTML = `<p>It's your turn</p>`;
-  }
-
-  let winner;
-  for (let i = 0; i < players.length; i++) {
-    if (players[i].pos == 99) {
-      winner = players[i];
-      break;
+    if (turn != currentPlayer.id) {
+      document.getElementById("roll-button").hidden = true;
+      document.getElementById(
+        "current-player"
+      ).innerHTML = `<p>It's ${players[turn].name}'s turn</p>`;
+    } else {
+      document.getElementById("roll-button").hidden = false;
+      document.getElementById(
+        "current-player"
+      ).innerHTML = `<p>It's your turn</p>`;
     }
-  }
 
-  if (winner) {
-    document.getElementById(
-      "current-player"
-    ).innerHTML = `<p>${winner.name} has won!</p>`;
-    document.getElementById("roll-button").hidden = true;
-    document.getElementById("dice").hidden = true;
-    document.getElementById("restart-btn").hidden = false;
+    let winner;
+    for (let i = 0; i < players.length; i++) {
+      if (players[i].pos == 99) {
+        winner = players[i];
+        break;
+      }
+    }
+
+    if (winner) {
+      document.getElementById(
+        "current-player"
+      ).innerHTML = `<p>${winner.name} has won!</p>`;
+      document.getElementById("roll-button").hidden = true;
+      document.getElementById("dice").hidden = true;
+      document.getElementById("restart-btn").hidden = false;
+    }
   }
 });
 
 // Logic to restart the game
 document.getElementById("restart-btn").addEventListener("click", () => {
-  socket.emit("restart");
+  if (gameMode === 'same-device') {
+    // Reset same device game
+    players.forEach(player => player.pos = 0);
+    currentTurn = 0;
+    document.getElementById("current-player").innerHTML = `<p>It's ${players[currentTurn].name}'s turn</p>`;
+    document.getElementById("roll-button").hidden = false;
+    document.getElementById("dice").hidden = false;
+    document.getElementById("restart-btn").hidden = true;
+    updatePlayersTable();
+    drawPins();
+  } else {
+    socket.emit("restart", { roomCode });
+  }
 });
 
 socket.on("restart", () => {
-  window.location.reload();
+  if (gameMode === 'online') {
+    window.location.reload();
+  }
 });
