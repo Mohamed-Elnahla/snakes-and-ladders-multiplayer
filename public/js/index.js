@@ -171,7 +171,7 @@ document.getElementById('start-same-device-btn').addEventListener('click', () =>
 });
 
 function initializeSameDeviceGame() {
-  setupCanvas();
+  initializeCanvas(); // Use the new responsive canvas initialization
   
   // Hide online-specific elements
   document.getElementById('name').style.display = 'none';
@@ -265,20 +265,96 @@ let canvas;
 let ctx;
 let side, offsetX, offsetY;
 
+// Get the actual displayed board size from CSS
+function getBoardDimensions() {
+  const board = document.querySelector('.board');
+  if (!board) return { width: 0, height: 0 };
+  
+  const rect = board.getBoundingClientRect();
+  return {
+    width: rect.width,
+    height: rect.height
+  };
+}
+
 // Initialize canvas after the game interface is shown
 function initializeCanvas() {
   canvas = document.getElementById("canvas");
   if (canvas) {
-    canvas.width = document.documentElement.clientHeight * 0.9;
-    canvas.height = document.documentElement.clientHeight * 0.9;
-    ctx = canvas.getContext("2d");
-    
-    // Calculate board dimensions
-    side = canvas.width / 10;
-    offsetX = side / 2;
-    offsetY = side / 2 + 20;
+    // Wait a brief moment for CSS to be applied
+    setTimeout(() => {
+      // Get the actual board dimensions from CSS
+      const boardDims = getBoardDimensions();
+      
+      console.log('Board dimensions:', boardDims);
+      
+      // Ensure we have valid dimensions
+      if (boardDims.width > 0 && boardDims.height > 0) {
+        // Set canvas internal resolution to match the displayed board
+        canvas.width = boardDims.width;
+        canvas.height = boardDims.height;
+        
+        // Make sure canvas element matches its internal dimensions
+        canvas.style.width = boardDims.width + 'px';
+        canvas.style.height = boardDims.height + 'px';
+        
+        ctx = canvas.getContext("2d");
+        
+        // Calculate board dimensions based on actual displayed size
+        side = canvas.width / 10;
+        offsetX = side / 2;
+        offsetY = side / 2 + 20;
+        
+        console.log('Canvas initialized:', {
+          width: canvas.width,
+          height: canvas.height,
+          side: side,
+          offsetX: offsetX,
+          offsetY: offsetY
+        });
+        
+        // Redraw pins if we have players
+        if (players.length > 0) {
+          drawPins();
+        }
+      } else {
+        console.warn('Board dimensions not available yet, retrying...');
+        // Retry after a longer delay
+        setTimeout(() => initializeCanvas(), 100);
+      }
+    }, 50);
   }
 }
+
+// Add resize handler to recalculate canvas dimensions
+function handleResize() {
+  if (canvas && ctx) {
+    // Store current canvas content if needed
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    
+    // Reinitialize canvas with new dimensions
+    initializeCanvas();
+    
+    // Redraw pins with new coordinates
+    if (players.length > 0) {
+      drawPins();
+    }
+  }
+}
+
+// Debounced resize handler to avoid too many calls
+let resizeTimeout;
+function debouncedResize() {
+  clearTimeout(resizeTimeout);
+  resizeTimeout = setTimeout(handleResize, 250);
+}
+
+// Add resize listener
+window.addEventListener('resize', debouncedResize);
+window.addEventListener('orientationchange', () => {
+  // Delay to allow orientation change to complete
+  setTimeout(handleResize, 300);
+});
 
 const redPieceImg = "../images/red_piece.png";
 const bluePieceImg = "../images/blue_piece.png";
@@ -317,14 +393,21 @@ class Player {
     this.isAnimating = false;
     this.animationPos = pos; // Current visual position during animation
     this.isStepMoving = false; // True during step-by-step movement, false during ladder/snake
-  }
-  // Calculate x,y coordinates for a given position
+  }  // Calculate x,y coordinates for a given position
   getCoordinates(position) {
+    // Ensure canvas dimensions are up to date
+    if (!canvas || !side) {
+      return { x: 0, y: 0 };
+    }
+    
     let xPos =
       Math.floor(position / 10) % 2 == 0
         ? (position % 10) * side - 15 + offsetX
         : canvas.width - ((position % 10) * side + offsetX + 15);
     let yPos = canvas.height - (Math.floor(position / 10) * side + offsetY);
+    
+    // Scale offset based on board size for better mobile experience
+    const baseOffset = Math.max(4, side * 0.1); // Minimum 4px, scales with board
     
     // Offset players slightly if multiple players are on the same square
     const playersOnSameSquare = players.filter(p => 
@@ -332,12 +415,13 @@ class Player {
     );
     
     if (playersOnSameSquare.length > 0) {
-      const offset = (this.id % 4) * 8; // Spread players by 8 pixels
-      xPos += offset - 12; // Center the spread
+      const offset = (this.id % 4) * baseOffset; // Spread players
+      xPos += offset - (baseOffset * 1.5); // Center the spread
     }
     
     return { x: xPos, y: yPos };
   }
+  
   draw() {
     const coords = this.getCoordinates(this.animationPos);
     let image = new Image();
@@ -349,8 +433,12 @@ class Player {
       bounceOffset = Math.sin(Date.now() * 0.01) * 2; // Small bounce
     }
     
-    ctx.drawImage(image, coords.x, coords.y + bounceOffset, 30, 40);
-  }  // Animate movement step by step
+    // Scale piece size based on board size
+    const pieceWidth = Math.max(20, side * 0.3); // Minimum 20px, scales with board
+    const pieceHeight = Math.max(26, side * 0.4); // Minimum 26px, scales with board
+    
+    ctx.drawImage(image, coords.x, coords.y + bounceOffset, pieceWidth, pieceHeight);
+  }// Animate movement step by step
   async animateMovement(steps) {
     if (this.isAnimating) return;
     
@@ -584,10 +672,10 @@ function rollDice() {
 
 function drawPins() {
   if (!ctx || !canvas) {
-    setupCanvas();
+    initializeCanvas();
   }
   
-  if (ctx && canvas) {
+  if (ctx && canvas && canvas.width > 0 && canvas.height > 0) {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     // Draw players in order (so overlapping is consistent)
@@ -682,7 +770,7 @@ function updateJoinedRoomPlayersList(playersData) {
 }
 
 function initializeOnlineGame(currentPlayerId = 0) {
-  setupCanvas();
+  initializeCanvas(); // Use the new responsive canvas initialization
   
   // Track the current turn
   onlineCurrentTurn = currentPlayerId;

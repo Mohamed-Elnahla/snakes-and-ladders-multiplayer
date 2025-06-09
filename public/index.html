@@ -13,8 +13,7 @@
     <div id="connection-indicator" class="connection-indicator">
       Status: <span id="connection-status">Connecting...</span>
     </div>
-    
-    <!-- Game Mode Modal -->
+      <!-- Game Mode Modal -->
     <div id="modal-overlay" class="modal-overlay">
       <div class="modal">
         <div class="modal-content" id="mode-selection">
@@ -87,18 +86,35 @@
             <p>Waiting for host to start the game...</p>
           </div>
           <button class="btn draw-border" id="back-from-join-btn">Back</button>
-        </div>
-      </div>
+        </div>      </div>
     </div>
 
-    <div class="board"></div>    <img src="images/red_piece.png" alt="" hidden="true" id="red-piece" />
+    <img src="images/red_piece.png" alt="" hidden="true" id="red-piece" />
     <img src="images/blue_piece.png" alt="" hidden="true" id="blue-piece" />
     <img src="images/yellow_piece.png" alt="" hidden="true" id="yellow-piece" />
-    <img src="images/green_piece.png" alt="" hidden="true" id="green-piece" />
-    <div class="game-interface" id="game-interface" hidden>
-      <div class="container">
-        <canvas id="canvas"></canvas>
+    <img src="images/green_piece.png" alt="" hidden="true" id="green-piece" />    <div class="game-interface" id="game-interface" hidden>
+      <div id="current-player"></div>
+      
+      <div id="players-box">
+        <h3>Players currently online:</h3>
+        <br>
+        <table id="players-table"></table>
       </div>
+      
+      <div class="board-container">
+        <div class="board"></div>
+        <div class="container">
+          <canvas id="canvas"></canvas>
+        </div>
+        <div class="dice">
+          <img src="./images/dice/dice1.png" alt="" id="dice" />
+        </div>
+        <button class="btn draw-border" id="roll-button" hidden>Roll</button>
+        <button class="btn draw-border" id="restart-btn" hidden>Restart</button>
+      </div>
+      
+      <div id="animation-status" class="animation-status"></div>
+      
       <div class="info-box">
         <div class="form-group">
           <input
@@ -111,17 +127,6 @@
           <button class="btn draw-border" id="start-btn">Join</button>
         </div>
       </div>
-      <div id="players-box">
-        <h3>Players currently online:</h3>
-        <br>
-        <table id="players-table"></table>
-      </div>      <div id="current-player"></div>
-      <div id="animation-status" class="animation-status"></div>
-      <button class="btn draw-border" id="roll-button" hidden>Roll</button>
-      <div class="dice">
-        <img src="./images/dice/dice1.png" alt="" id="dice" />
-      </div>
-      <button class="btn draw-border" id="restart-btn" hidden>Restart</button>
     </div>
     <script src="/socket.io/socket.io.js"></script>
     <script src="js/index.js"></script>
