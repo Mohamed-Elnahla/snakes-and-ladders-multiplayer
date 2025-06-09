@@ -338,6 +338,7 @@ body {
 
 /* Responsive adjustments for smaller screens */
 @media (max-width: 768px) {
+  /* Modal adjustments */
   .modal {
     padding: 1rem;
     margin: 0.5rem;
@@ -368,6 +369,217 @@ body {
   
   .form-group.horizontal .btn {
     width: 100%;
+  }
+
+  /* Game board and container adjustments for tablets */
+  .board {
+    transform: none;
+    top: 2%;
+    left: 50%;
+    margin-left: -45vw;
+    height: 90vw;
+    width: 90vw;
+    max-height: 90vh;
+    max-width: 90vh;
+  }
+
+  .container {
+    transform: none;
+    top: 2%;
+    left: 50%;
+    margin-left: -45vw;
+    width: 90vw;
+    height: 90vw;
+    max-height: 90vh;
+    max-width: 90vh;
+  }
+
+  /* Adjust game interface elements */
+  .form-input {
+    position: relative;
+    top: auto;
+    right: auto;
+    width: 100%;
+    min-width: auto;
+    max-width: none;
+    margin-bottom: 1rem;
+  }
+
+  #start-btn {
+    position: relative;
+    top: auto;
+    right: auto;
+    width: 100%;
+    margin-bottom: 1rem;
+  }
+
+  #players-box {
+    position: relative;
+    top: auto;
+    right: auto;
+    margin: 1rem 0;
+    padding: 1rem;
+    background-color: rgba(42, 32, 53, 0.9);
+    border-radius: 10px;
+  }
+
+  .dice {
+    position: absolute;
+    right: 5%;
+    bottom: 5%;
+    width: 80px;
+  }
+
+  .dice img {
+    width: 100%;
+  }
+
+  #roll-button {
+    position: absolute;
+    right: 5%;
+    bottom: 25%;
+    padding: 0.8rem 1.5rem;
+    font-size: 1rem;
+  }
+
+  #current-player {
+    position: absolute;
+    bottom: 40%;
+    right: 5%;
+    left: 5%;
+    text-align: center;
+    font-size: 1.2rem;
+    background-color: rgba(42, 32, 53, 0.9);
+    padding: 0.5rem;
+    border-radius: 5px;
+  }
+
+  #restart-btn {
+    position: absolute;
+    right: 5%;
+    bottom: 10%;
+    padding: 0.8rem 1.5rem;
+    font-size: 1rem;
+  }
+
+  .animation-status {
+    position: absolute;
+    bottom: 55%;
+    right: 5%;
+    left: 5%;
+    text-align: center;
+    font-size: 1rem;
+  }
+
+  /* Ensure touch targets are large enough */
+  .btn {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Improve touch interactions */
+  button, input {
+    -webkit-appearance: none;
+    appearance: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Prevent zoom on input focus on iOS */
+  input[type="text"] {
+    font-size: 16px;
+  }
+  /* Better scrolling on mobile */
+  .modal {
+    overflow-y: auto;
+  }
+
+  /* Landscape orientation adjustments for phones */
+  @media (orientation: landscape) and (max-height: 500px) and (max-width: 768px) {
+    .board {
+      height: 80vh;
+      width: 80vh;
+      max-height: 80vh;
+      max-width: 80vh;
+    }
+
+    .container {
+      height: 80vh;
+      width: 80vh;
+      max-height: 80vh;
+      max-width: 80vh;
+    }
+
+    #current-player {
+      font-size: 0.9rem;
+      padding: 0.3rem;
+    }
+
+    .animation-status {
+      font-size: 0.8rem;
+    }
+
+    .dice {
+      width: 50px;
+    }
+
+    #roll-button, #restart-btn {
+      padding: 0.6rem 1rem;
+      font-size: 0.8rem;
+    }
+  }
+
+  /* Very small screens adjustments */
+  @media (max-width: 320px) {
+    .board {
+      height: 92vw;
+      width: 92vw;
+    }
+
+    .container {
+      height: 92vw;
+      width: 92vw;
+    }
+
+    #current-player {
+      font-size: 0.9rem;
+      padding: 0.4rem;
+    }
+
+    .dice {
+      width: 50px;
+    }
+
+    #roll-button, #restart-btn {
+      font-size: 0.8rem;
+      padding: 0.6rem 1rem;
+    }
+  }
+}
+
+/* Ensure game elements don't overlap on very small screens */
+@media (max-width: 320px) {
+  .board {
+    height: 92vw;
+    width: 92vw;
+  }
+
+  .container {
+    height: 92vw;
+    width: 92vw;
+  }
+
+  #current-player {
+    font-size: 0.9rem;
+    padding: 0.4rem;
+  }
+
+  .dice {
+    width: 50px;
+  }
+
+  #roll-button, #restart-btn {
+    font-size: 0.8rem;
+    padding: 0.6rem 1rem;
   }
 }
 
@@ -409,10 +621,12 @@ body {
 
 /* Improved form layout for smaller screens */
 @media (max-width: 480px) {
+  /* Modal adjustments for phones */
   .modal {
     padding: 0.8rem;
     margin: 0.2rem;
     max-width: 98%;
+    max-height: 95vh;
   }
   
   .modal-content h2 {
@@ -427,6 +641,125 @@ body {
   .btn {
     padding: 0.6rem 1rem;
     font-size: 0.9rem;
+  }
+
+  /* Game board optimized for phones */
+  .board {
+    transform: none;
+    top: 1%;
+    left: 50%;
+    margin-left: -48vw;
+    height: 96vw;
+    width: 96vw;
+    max-height: 85vh;
+    max-width: 85vh;
+  }
+
+  .container {
+    transform: none;
+    top: 1%;
+    left: 50%;
+    margin-left: -48vw;
+    width: 96vw;
+    height: 96vw;
+    max-height: 85vh;
+    max-width: 85vh;
+  }
+
+  /* Game interface elements for phones */
+  .game-interface {
+    position: relative;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .form-input {
+    font-size: 1rem;
+    padding: 0.8rem;
+  }
+
+  #players-box {
+    font-size: 1.2rem;
+    margin: 0.5rem;
+    padding: 0.8rem;
+    order: 1;
+  }
+
+  .dice {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 60px;
+    z-index: 100;
+  }
+
+  #roll-button {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    padding: 0.8rem 1.2rem;
+    font-size: 0.9rem;
+    z-index: 100;
+  }
+
+  #current-player {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    right: auto;
+    bottom: auto;
+    width: calc(100% - 40px);
+    max-width: 300px;
+    font-size: 1rem;
+    background-color: rgba(42, 32, 53, 0.95);
+    padding: 0.5rem;
+    border-radius: 8px;
+    z-index: 100;
+  }
+
+  #restart-btn {
+    position: fixed;
+    bottom: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    right: auto;
+    padding: 0.8rem 1.2rem;
+    font-size: 0.9rem;
+    z-index: 100;
+  }
+
+  .animation-status {
+    position: fixed;
+    top: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    right: auto;
+    bottom: auto;
+    width: calc(100% - 40px);
+    max-width: 300px;
+    font-size: 0.9rem;
+    z-index: 100;
+  }
+
+  /* Connection indicator adjustment for phones */
+  .connection-indicator {
+    top: 5px;
+    right: 5px;
+    left: auto;
+    font-size: 11px;
+    padding: 4px 8px;
+  }
+
+  /* Ensure the info box doesn't interfere on mobile */
+  .info-box {
+    position: relative;
+    order: 2;
+    padding: 1rem;
+    background-color: rgba(42, 32, 53, 0.9);
+    margin: 1rem;
+    border-radius: 10px;
   }
 }
 
