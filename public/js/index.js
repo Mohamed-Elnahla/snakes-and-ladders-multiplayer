@@ -1,5 +1,55 @@
 // Making Connection
-const socket = io.connect("http://localhost:3000");
+const socket = io({
+  autoConnect: true,
+  reconnection: true,
+  reconnectionAttempts: 5,
+  reconnectionDelay: 1000,
+  timeout: 20000
+});
+
+// Add connection debugging
+socket.on('connect', () => {
+  console.log('Connected to server with ID:', socket.id);
+  // Show connection status
+  const statusElement = document.getElementById('connection-status');
+  if (statusElement) {
+    statusElement.textContent = 'Connected';
+    statusElement.style.color = 'green';
+  }
+});
+
+socket.on('disconnect', (reason) => {
+  console.log('Disconnected from server. Reason:', reason);
+  // Show disconnection status
+  const statusElement = document.getElementById('connection-status');
+  if (statusElement) {
+    statusElement.textContent = 'Disconnected';
+    statusElement.style.color = 'red';
+  }
+});
+
+socket.on('connect_error', (error) => {
+  console.error('Connection error:', error);
+  // Show connection error
+  const statusElement = document.getElementById('connection-status');
+  if (statusElement) {
+    statusElement.textContent = 'Connection Error';
+    statusElement.style.color = 'orange';
+  }
+});
+
+socket.on('reconnect', (attemptNumber) => {
+  console.log('Reconnected after', attemptNumber, 'attempts');
+});
+
+socket.on('reconnecting', (attemptNumber) => {
+  console.log('Reconnection attempt', attemptNumber);
+  const statusElement = document.getElementById('connection-status');
+  if (statusElement) {
+    statusElement.textContent = `Reconnecting... (${attemptNumber})`;
+    statusElement.style.color = 'orange';
+  }
+});
 
 let players = []; // All players in the game
 let currentPlayer; // Player object for individual players
@@ -180,8 +230,11 @@ document.getElementById('join-room-btn').addEventListener('click', () => {
 document.getElementById('create-room-confirm-btn').addEventListener('click', () => {
   const hostName = document.getElementById('host-name-input').value.trim();
   if (hostName) {
+    console.log('Creating room for:', hostName);
     isHost = true;
     socket.emit('createRoom', { name: hostName });
+  } else {
+    alert('Please enter your name');
   }
 });
 
@@ -507,6 +560,7 @@ function drawPins() {
 
 // Listen for events
 socket.on('roomCreated', (data) => {
+  console.log('Room created successfully:', data);
   roomCode = data.roomCode;
   document.getElementById('room-code').textContent = roomCode;
   document.getElementById('room-code-display').style.display = 'block';
@@ -516,6 +570,7 @@ socket.on('roomCreated', (data) => {
 });
 
 socket.on('roomJoined', (data) => {
+  console.log('Room joined successfully:', data);
   roomCode = data.roomCode;
   document.getElementById('joined-room-code').textContent = roomCode;
   document.getElementById('joined-room-info').style.display = 'block';
@@ -543,6 +598,7 @@ socket.on('gameStarted', (data) => {
 });
 
 socket.on('roomError', (error) => {
+  console.error('Room error:', error);
   alert(error.message);
 });
 

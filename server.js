@@ -3,14 +3,29 @@ const socket = require("socket.io");
 const http = require("http");
 
 const app = express();
-const PORT = 3000 || process.env.PORT;
+const PORT = process.env.PORT || 3000;
 const server = http.createServer(app);
 
 // Set static folder
 app.use(express.static("public"));
 
+// Add basic error handling
+app.use((err, req, res, next) => {
+  console.error('Express error:', err.stack);
+  res.status(500).send('Something broke!');
+});
+
 // Socket setup
-const io = socket(server);
+const io = socket(server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"]
+  }
+});
+
+console.log('Server starting up...');
+console.log('Environment:', process.env.NODE_ENV || 'development');
+console.log('Port:', PORT);
 
 // Players array for legacy mode
 let users = [];
@@ -20,11 +35,20 @@ const rooms = new Map();
 const images = ["../images/red_piece.png", "../images/blue_piece.png", "../images/yellow_piece.png", "../images/green_piece.png"];
 
 function generateRoomCode() {
-  return Math.random().toString(36).substring(2, 8).toUpperCase();
+  let code;
+  do {
+    code = Math.random().toString(36).substring(2, 8).toUpperCase();
+  } while (rooms.has(code)); // Ensure uniqueness
+  return code;
 }
 
 io.on("connection", (socket) => {
   console.log("Made socket connection", socket.id);
+
+  // Add error handling for socket events
+  socket.on('error', (error) => {
+    console.error('Socket error for', socket.id, ':', error);
+  });
 
   // Legacy join for direct online play (without rooms)
   socket.on("join", (data) => {
@@ -34,31 +58,43 @@ io.on("connection", (socket) => {
 
   socket.on("joined", () => {
     socket.emit("joined", users);
-  });
-
-  // Room-based functionality
+  });  // Room-based functionality
   socket.on("createRoom", (data) => {
-    const roomCode = generateRoomCode();
-    const room = {
-      code: roomCode,
-      host: socket.id,
-      players: [{
-        id: 0,
-        name: data.name,
-        pos: 0,
-        img: images[0],
-        socketId: socket.id
-      }],
-      gameStarted: false
-    };
-    
-    rooms.set(roomCode, room);
-    socket.join(roomCode);
-    
-    socket.emit("roomCreated", {
-      roomCode: roomCode,
-      players: room.players
-    });
+    try {
+      console.log("Creating room for player:", data.name);
+      
+      if (!data || !data.name || typeof data.name !== 'string' || data.name.trim() === '') {
+        socket.emit("roomError", { message: "Invalid player name!" });
+        return;
+      }
+      
+      const roomCode = generateRoomCode();
+      const room = {
+        code: roomCode,
+        host: socket.id,
+        players: [{
+          id: 0,
+          name: data.name.trim(),
+          pos: 0,
+          img: images[0],
+          socketId: socket.id
+        }],
+        gameStarted: false
+      };
+      
+      rooms.set(roomCode, room);
+      socket.join(roomCode);
+      
+      console.log("Room created:", roomCode, "Total rooms:", rooms.size);
+      
+      socket.emit("roomCreated", {
+        roomCode: roomCode,
+        players: room.players
+      });
+    } catch (error) {
+      console.error("Error creating room:", error);
+      socket.emit("roomError", { message: "Failed to create room. Please try again." });
+    }
   });
 
   socket.on("joinRoom", (data) => {
@@ -199,4 +235,24 @@ io.on("connection", (socket) => {
   });
 });
 
-server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+server.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+  console.log('Server ready to accept connections');
+});
+
+// Handle server errors
+server.on('error', (error) => {
+  if (error.code === 'EADDRINUSE') {
+    console.error(`Port ${PORT} is already in use`);
+  } else {
+    console.error('Server error:', error);
+  }
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('SIGTERM received, shutting down gracefully');
+  server.close(() => {
+    console.log('Process terminated');
+  });
+});
