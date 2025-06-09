@@ -457,7 +457,7 @@ body.game-started #roll-button {
   #players-box {
     position: absolute !important;
     top: 25% !important;
-    right: 19% !important;
+    right: 10% !important;
     color: azure !important;
     font-size: 1.6rem !important;
     font-family: "Roboto Slab", sans-serif !important;

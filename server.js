@@ -136,7 +136,6 @@ io.on("connection", (socket) => {
       players: room.players
     });
   });
-
   socket.on("startGame", (data) => {
     const room = rooms.get(data.roomCode);
     
@@ -152,25 +151,49 @@ io.on("connection", (socket) => {
     
     room.gameStarted = true;
     
-    // Assign current player (first player goes first)
-    const currentPlayerId = 0;
+    // Initialize current turn (first player goes first)
+    room.currentTurn = 0;
     
     io.to(data.roomCode).emit("gameStarted", {
       players: room.players,
-      currentPlayerId: currentPlayerId
+      currentPlayerId: 0
     });
-  });
-
-  socket.on("rollDice", (data) => {
+  });  socket.on("rollDice", (data) => {
     if (data.roomCode) {
       // Room-based game
       const room = rooms.get(data.roomCode);
-      if (room) {
+      if (room && room.gameStarted) {
         const player = room.players.find(p => p.id === data.id);
         if (player) {
+          // Validate it's actually this player's turn
+          if (room.currentTurn !== data.id) {
+            socket.emit("roomError", { message: "It's not your turn!" });
+            return;
+          }
+          
+          // Update player position on server
           player.pos = data.pos;
-          const turn = data.num != 6 ? (data.id + 1) % room.players.length : data.id;
-          io.to(data.roomCode).emit("rollDice", data, turn);
+          
+          // Check if this player won
+          let winner = null;
+          if (player.pos >= 99) {
+            winner = player;
+            // Game is over, don't calculate next turn
+          }
+          
+          // Calculate next turn only if no winner
+          let nextTurn = room.currentTurn;
+          if (!winner) {
+            nextTurn = data.num !== 6 ? (data.id + 1) % room.players.length : data.id;
+            room.currentTurn = nextTurn;
+          }
+          
+          // Broadcast to all players in room with updated game state
+          io.to(data.roomCode).emit("rollDice", {
+            ...data,
+            players: room.players, // Include updated player positions
+            winner: winner
+          }, nextTurn);
         }
       }
     } else {

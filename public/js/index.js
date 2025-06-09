@@ -438,7 +438,7 @@ class Player {
     const pieceHeight = Math.max(26, side * 0.4); // Minimum 26px, scales with board
     
     ctx.drawImage(image, coords.x, coords.y + bounceOffset, pieceWidth, pieceHeight);
-  }// Animate movement step by step
+  }  // Animate movement step by step
   async animateMovement(steps) {
     if (this.isAnimating) return;
     
@@ -501,6 +501,93 @@ class Player {
     }
     
     drawPins();
+  }
+
+  // Animate directly to a specific position (for online sync)
+  async animateToPosition(targetPos) {
+    if (this.isAnimating) return;
+    
+    this.isAnimating = true;
+    const startPos = this.animationPos;
+    
+    // Only disable roll button during animation if it's currently visible (player's turn)
+    const rollButton = document.getElementById("roll-button");
+    const wasButtonVisible = !rollButton.hidden;
+    if (wasButtonVisible) {
+      rollButton.disabled = true;
+    }
+    
+    // Show animation status
+    const statusElement = document.getElementById("animation-status");
+    if (statusElement) {
+      statusElement.style.display = 'block';
+      statusElement.textContent = `${this.name} is moving...`;
+    }
+    
+    // If we need to move forward
+    if (targetPos > startPos) {
+      // Step-by-step movement to show the dice roll steps
+      for (let i = startPos + 1; i <= targetPos; i++) {
+        // Check if this is a ladder/snake destination, if so animate more quickly
+        const isLadderSnakeDestination = this.isLadderOrSnakeDestination(i);
+        
+        this.animationPos = i;
+        drawPins();
+        
+        if (!isLadderSnakeDestination) {
+          this.flashDice();
+          await this.delay(300); // Normal step delay
+        } else {
+          await this.delay(150); // Faster for ladder/snake destinations
+        }
+      }
+    } else if (targetPos < startPos) {
+      // Animate ladder/snake movement (already calculated by server)
+      const distance = Math.abs(targetPos - startPos);
+      const steps = Math.min(distance, 8);
+      const stepDelay = 120; // Snake sliding speed
+      
+      if (statusElement) {
+        statusElement.textContent = `${this.name} is sliding down a snake! 🐍`;
+      }
+      
+      for (let i = 1; i <= steps; i++) {
+        const progress = i / steps;
+        const easedProgress = this.easeInQuad(progress);
+        const currentPos = startPos + (targetPos - startPos) * easedProgress;
+        this.animationPos = Math.round(currentPos);
+        drawPins();
+        await this.delay(stepDelay);
+      }
+    }
+    
+    this.animationPos = targetPos;
+    this.isAnimating = false;
+    
+    // Hide animation status
+    if (statusElement) {
+      statusElement.style.display = 'none';
+    }
+    
+    // Only re-enable roll button if it was visible before animation
+    if (wasButtonVisible) {
+      rollButton.disabled = false;
+    }
+    
+    drawPins();
+  }
+
+  // Check if a position is a ladder or snake destination
+  isLadderOrSnakeDestination(pos) {
+    // Check ladders
+    for (let i = 0; i < ladders.length; i++) {
+      if (ladders[i][1] === pos) return true;
+    }
+    // Check snakes
+    for (let i = 0; i < snakes.length; i++) {
+      if (snakes[i][1] === pos) return true;
+    }
+    return false;
   }
 
   // Visual feedback for movement steps
@@ -827,13 +914,46 @@ socket.on("rollDice", async (data, turn) => {
     // Update our tracked turn
     onlineCurrentTurn = turn;
     
+    // Sync all player positions from server (this ensures all clients have the same state)
+    if (data.players) {
+      data.players.forEach(serverPlayer => {
+        const localPlayer = players.find(p => p.id === serverPlayer.id);
+        if (localPlayer) {
+          localPlayer.pos = serverPlayer.pos;
+          localPlayer.animationPos = serverPlayer.pos;
+        }
+      });
+    }
+    
     document.getElementById("dice").src = `./images/dice/dice${data.num}.png`;
     
     // Hide roll button during any player's animation to prevent confusion
     document.getElementById("roll-button").hidden = true;
-    
-    // Animate the movement for the player who rolled
-    await players[data.id].animateMovement(data.num);
+      // Animate the movement for the player who rolled
+    const rollingPlayer = players[data.id];
+    if (rollingPlayer) {
+      // Calculate the starting position for animation
+      const startPos = rollingPlayer.animationPos;
+      const targetPos = rollingPlayer.pos;
+      
+      // If there's a difference, animate to the new position
+      if (startPos !== targetPos) {
+        // Animate from current animation position to target position
+        await rollingPlayer.animateToPosition(targetPos);
+      } else {
+        // Just redraw if no animation needed
+        drawPins();
+      }
+    }
+
+    // Check for winner from server response
+    if (data.winner) {
+      document.getElementById("current-player").innerHTML = `<p>${data.winner.name} has won!</p>`;
+      document.getElementById("roll-button").hidden = true;
+      document.getElementById("dice").hidden = true;
+      document.getElementById("restart-btn").hidden = false;
+      return;
+    }
 
     // Determine if it's my turn now
     const isMyTurn = currentPlayer && currentPlayer.id === turn;
@@ -850,22 +970,6 @@ socket.on("rollDice", async (data, turn) => {
       rollButton.hidden = true;
       const nextPlayerName = players.find(p => p.id === turn)?.name || 'Unknown';
       document.getElementById("current-player").innerHTML = `<p>It's ${nextPlayerName}'s turn</p>`;
-    }
-
-    // Check for winner
-    let winner;
-    for (let i = 0; i < players.length; i++) {
-      if (players[i].pos == 99) {
-        winner = players[i];
-        break;
-      }
-    }
-
-    if (winner) {
-      document.getElementById("current-player").innerHTML = `<p>${winner.name} has won!</p>`;
-      rollButton.hidden = true;
-      document.getElementById("dice").hidden = true;
-      document.getElementById("restart-btn").hidden = false;
     }
   }
 });
