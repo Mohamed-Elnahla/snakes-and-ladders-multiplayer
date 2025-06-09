@@ -28,8 +28,8 @@ body {
   transform: translateX(-50%);
   height: 70vh;
   width: 70vh;
-  max-width: 80vw;
-  max-height: 80vw;
+  max-width: 70vw;
+  max-height: 70vh;
   background: url("../images/board.png");
   background-size: contain;
   background-repeat: no-repeat;
@@ -43,8 +43,8 @@ body {
   transform: translateX(-50%);
   width: 70vh;
   height: 70vh;
-  max-width: 80vw;
-  max-height: 80vw;
+  max-width: 70vw;
+  max-height: 70vh;
   z-index: 1;
 }
 
@@ -62,7 +62,6 @@ body {
   right: 25%;
   bottom: 10%;
   z-index: 10;
-  display: none; /* Initially hidden */
 }
 
 .dice img {
@@ -366,6 +365,12 @@ body {
   height: 100%;
 }
 
+/* Initially hide dice and roll button */
+.dice,
+#roll-button {
+  display: none;
+}
+
 /* Show dice and buttons when game starts */
 .game-interface:not([hidden]) .dice,
 .game-interface:not([hidden]) #roll-button {
@@ -376,6 +381,138 @@ body {
 body.game-started .dice,
 body.game-started #roll-button {
   display: block !important;
+}
+
+/* Desktop and Laptop Styles */
+@media (min-width: 769px) {
+  /* Reset mobile layout for desktop */
+  body {
+    overflow-x: auto;
+  }
+  
+  .game-interface {
+    display: block !important;
+    min-height: 100vh !important;
+    padding: 0 !important;
+  }
+  
+  .board-container {
+    display: block !important;
+    position: static !important;
+    order: unset !important;
+    margin: 0 !important;
+  }
+  
+  /* Desktop board positioning */
+  .board {
+    position: absolute !important;
+    top: 5% !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    height: 70vh !important;
+    width: 70vh !important;
+    max-width: 70vw !important;
+    max-height: 70vh !important;
+    z-index: -1 !important;
+  }
+  
+  .container {
+    position: absolute !important;
+    top: 5% !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    width: 70vh !important;
+    height: 70vh !important;
+    max-width: 70vw !important;
+    max-height: 70vh !important;
+    z-index: 1 !important;
+  }
+  
+  /* Desktop dice and button positioning */
+  .dice {
+    position: absolute !important;
+    right: 25% !important;
+    bottom: 10% !important;
+    z-index: 10 !important;
+    transform: none !important;
+    width: auto !important;
+  }
+  
+  .dice img {
+    width: 70px !important;
+    height: 70px !important;
+  }
+  
+  #roll-button {
+    position: absolute !important;
+    right: 18% !important;
+    bottom: 16% !important;
+    z-index: 10 !important;
+    transform: none !important;
+    padding: 1em 2em !important;
+    font-size: 1.2rem !important;
+  }
+  
+  /* Desktop element positioning */
+  #players-box {
+    position: absolute !important;
+    top: 25% !important;
+    right: 19% !important;
+    color: azure !important;
+    font-size: 1.6rem !important;
+    font-family: "Roboto Slab", sans-serif !important;
+    background: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    order: unset !important;
+  }
+  
+  #current-player {
+    position: absolute !important;
+    bottom: 35% !important;
+    right: 20% !important;
+    color: azure !important;
+    font-size: 1.4rem !important;
+    font-family: "Roboto Slab", sans-serif !important;
+    text-align: center !important;
+    background: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    order: unset !important;
+  }
+  
+  .animation-status {
+    position: absolute !important;
+    bottom: 25% !important;
+    right: 25% !important;
+    color: #ffe593 !important;
+    font-size: 1.1rem !important;
+    font-family: "Roboto Slab", sans-serif !important;
+    text-align: center !important;
+    background-color: rgba(42, 32, 53, 0.8) !important;
+    padding: 0.5rem 1rem !important;
+    border-radius: 5px !important;
+    margin: 0 !important;
+    order: unset !important;
+  }
+  
+  #restart-btn {
+    position: absolute !important;
+    right: 20% !important;
+    bottom: 16% !important;
+    padding: 1em 2em !important;
+    font-size: 1rem !important;
+    transform: none !important;
+  }
+  
+  /* Ensure dice and roll button are visible on desktop when game starts */
+  body.game-started .dice {
+    display: block !important;
+  }
+  
+  body.game-started #roll-button {
+    display: block !important;
+  }
 }
 
 /* Tablet and Mobile Adjustments */
