@@ -55,6 +55,7 @@ let players = []; // All players in the game
 let currentPlayer; // Player object for individual players
 let gameMode = null; // 'same-device' or 'online'
 let currentTurn = 0; // For same device mode
+let onlineCurrentTurn = 0; // For online mode
 let roomCode = null;
 let isHost = false;
 
@@ -349,7 +350,7 @@ class Player {
     }
     
     ctx.drawImage(image, coords.x, coords.y + bounceOffset, 30, 40);
-  }// Animate movement step by step
+  }  // Animate movement step by step
   async animateMovement(steps) {
     if (this.isAnimating) return;
     
@@ -357,8 +358,12 @@ class Player {
     const startPos = this.pos;
     const endPos = Math.min(this.pos + steps, 99);
     
-    // Disable roll button during animation
-    document.getElementById("roll-button").disabled = true;
+    // Only disable roll button during animation if it's currently visible (player's turn)
+    const rollButton = document.getElementById("roll-button");
+    const wasButtonVisible = !rollButton.hidden;
+    if (wasButtonVisible) {
+      rollButton.disabled = true;
+    }
     
     // Show animation status
     const statusElement = document.getElementById("animation-status");
@@ -402,8 +407,10 @@ class Player {
       statusElement.style.display = 'none';
     }
     
-    // Re-enable roll button
-    document.getElementById("roll-button").disabled = false;
+    // Only re-enable roll button if it was visible before animation
+    if (wasButtonVisible) {
+      rollButton.disabled = false;
+    }
     
     drawPins();
   }
@@ -501,6 +508,14 @@ document.getElementById("start-btn").addEventListener("click", () => {
 });
 
 document.getElementById("roll-button").addEventListener("click", async () => {
+  const rollButton = document.getElementById("roll-button");
+  
+  // Prevent multiple clicks during animation or when it's not the player's turn
+  if (rollButton.disabled || rollButton.hidden) {
+    console.log('Roll button clicked but disabled or hidden');
+    return;
+  }
+  
   const num = rollDice();
   
   if (gameMode === 'same-device') {
@@ -527,8 +542,32 @@ document.getElementById("roll-button").addEventListener("click", async () => {
     document.getElementById("current-player").innerHTML = `<p>It's ${players[currentTurn].name}'s turn</p>`;
     updatePlayersTable();
   } else {
-    // Online mode - animate current player's movement
+    // Online mode - ensure this is the current player's turn
+    if (!currentPlayer) {
+      console.error('No current player found!');
+      return;
+    }
+    
+    // Double-check it's actually this player's turn
+    if (currentPlayer.id !== onlineCurrentTurn) {
+      console.warn('Player tried to roll when it\'s not their turn!', 
+        'Player ID:', currentPlayer.id, 'Current turn:', onlineCurrentTurn);
+      rollButton.hidden = true; // Hide the button as it shouldn't be visible
+      return;
+    }
+    
+    console.log('Rolling dice for player:', currentPlayer.name, 'ID:', currentPlayer.id);
+    
+    // Disable button immediately to prevent multiple clicks
+    rollButton.disabled = true;
+    
+    // Update dice display
+    document.getElementById("dice").src = `./images/dice/dice${num}.png`;
+    
+    // Animate current player's movement
     await currentPlayer.animateMovement(num);
+    
+    // Send roll dice event to server
     socket.emit("rollDice", {
       num: num,
       id: currentPlayer.id,
@@ -592,9 +631,17 @@ socket.on('roomPlayerUpdate', (data) => {
 
 socket.on('gameStarted', (data) => {
   players = data.players.map(p => new Player(p.id, p.name, p.pos, p.img));
-  currentPlayer = players.find(p => p.id === data.currentPlayerId);
+  // Find current player by matching socketId with the server socket
+  currentPlayer = players.find(p => {
+    const serverPlayer = data.players.find(sp => sp.id === p.id);
+    return serverPlayer && serverPlayer.socketId === socket.id;
+  });
+  
+  console.log('Game started. Current player:', currentPlayer);
+  console.log('All players:', players);
+  
   hideModal();
-  initializeOnlineGame();
+  initializeOnlineGame(data.currentPlayerId);
 });
 
 socket.on('roomError', (error) => {
@@ -634,13 +681,32 @@ function updateJoinedRoomPlayersList(playersData) {
   });
 }
 
-function initializeOnlineGame() {
+function initializeOnlineGame(currentPlayerId = 0) {
   setupCanvas();
+  
+  // Track the current turn
+  onlineCurrentTurn = currentPlayerId;
   
   document.getElementById('players-box').querySelector('h3').textContent = 'Players currently online:';
   document.getElementById('name').style.display = 'none';
   document.getElementById('start-btn').style.display = 'none';
-  document.getElementById('roll-button').hidden = false;
+  
+  // Show roll button only for the current player's turn
+  const isMyTurn = currentPlayer && currentPlayer.id === currentPlayerId;
+  const rollButton = document.getElementById('roll-button');
+  rollButton.hidden = !isMyTurn;
+  rollButton.disabled = false; // Reset disabled state
+  
+  console.log('Initialize online game. Current player ID:', currentPlayer?.id, 'Current turn ID:', currentPlayerId, 'Is my turn:', isMyTurn);
+  
+  // Update current player display
+  if (isMyTurn) {
+    document.getElementById("current-player").innerHTML = `<p>It's your turn</p>`;
+  } else {
+    const currentPlayerName = players.find(p => p.id === currentPlayerId)?.name || 'Unknown';
+    document.getElementById("current-player").innerHTML = `<p>It's ${currentPlayerName}'s turn</p>`;
+  }
+  
   updatePlayersTable();
   drawPins();
 }
@@ -668,23 +734,37 @@ socket.on("joined", (data) => {
 
 socket.on("rollDice", async (data, turn) => {
   if (gameMode === 'online') {
+    console.log('Roll dice event received. Data:', data, 'Next turn:', turn, 'My player ID:', currentPlayer?.id);
+    
+    // Update our tracked turn
+    onlineCurrentTurn = turn;
+    
     document.getElementById("dice").src = `./images/dice/dice${data.num}.png`;
+    
+    // Hide roll button during any player's animation to prevent confusion
+    document.getElementById("roll-button").hidden = true;
     
     // Animate the movement for the player who rolled
     await players[data.id].animateMovement(data.num);
 
-    if (turn != currentPlayer.id) {
-      document.getElementById("roll-button").hidden = true;
-      document.getElementById(
-        "current-player"
-      ).innerHTML = `<p>It's ${players[turn].name}'s turn</p>`;
+    // Determine if it's my turn now
+    const isMyTurn = currentPlayer && currentPlayer.id === turn;
+    
+    console.log('After animation - Is my turn:', isMyTurn, 'Current player ID:', currentPlayer?.id, 'Turn ID:', turn);
+    
+    const rollButton = document.getElementById("roll-button");
+    
+    if (isMyTurn) {
+      rollButton.hidden = false;
+      rollButton.disabled = false; // Ensure it's enabled
+      document.getElementById("current-player").innerHTML = `<p>It's your turn</p>`;
     } else {
-      document.getElementById("roll-button").hidden = false;
-      document.getElementById(
-        "current-player"
-      ).innerHTML = `<p>It's your turn</p>`;
+      rollButton.hidden = true;
+      const nextPlayerName = players.find(p => p.id === turn)?.name || 'Unknown';
+      document.getElementById("current-player").innerHTML = `<p>It's ${nextPlayerName}'s turn</p>`;
     }
 
+    // Check for winner
     let winner;
     for (let i = 0; i < players.length; i++) {
       if (players[i].pos == 99) {
@@ -694,10 +774,8 @@ socket.on("rollDice", async (data, turn) => {
     }
 
     if (winner) {
-      document.getElementById(
-        "current-player"
-      ).innerHTML = `<p>${winner.name} has won!</p>`;
-      document.getElementById("roll-button").hidden = true;
+      document.getElementById("current-player").innerHTML = `<p>${winner.name} has won!</p>`;
+      rollButton.hidden = true;
       document.getElementById("dice").hidden = true;
       document.getElementById("restart-btn").hidden = false;
     }
